@@ -1,0 +1,1463 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Traceur VTT Belgique</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F3F5F1; --panel:#FFFFFF; --ink:#1F2A2B; --muted:#5B6A6B; --line:#D5DBD5;
+  --route:#D6246E; --earth:#8A6A45; --earth-soft:rgba(138,106,69,.22); --moss:#4E7A4A;
+  --trail:#4E7A4A; --track:#B08A4E; --road:#7D8A8C; --err:#B3261E;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --paper:#151B1C; --panel:#1D2526; --ink:#E6ECEA; --muted:#9AA8A8; --line:#334041;
+    --route:#FF5A9C; --earth:#C9A06E; --earth-soft:rgba(201,160,110,.22); --moss:#7DB377;
+    --trail:#7DB377; --track:#C9A06E; --road:#8F9C9E; --err:#FF8A80; color-scheme:dark; }
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:Barlow,system-ui,sans-serif;background:var(--paper);color:var(--ink);display:flex;font-size:15px;line-height:1.45}
+aside{width:350px;flex:none;height:100%;overflow-y:auto;background:var(--panel);border-right:1px solid var(--line);padding:18px 18px 24px}
+main{flex:1;position:relative;display:flex;flex-direction:column;min-width:0}
+#map{flex:1}
+h1{font-family:"Barlow Condensed",sans-serif;font-weight:700;font-size:30px;line-height:1;margin:0 0 4px;letter-spacing:.2px}
+.lede{color:var(--muted);margin:0 0 16px;font-size:14px}
+section{border-top:1px solid var(--line);padding:14px 0}
+h2{font-family:"Barlow Condensed",sans-serif;font-weight:500;font-size:19px;margin:0 0 10px}
+label{display:block;font-size:13px;color:var(--muted);margin:8px 0 3px}
+select,input[type=text],input[type=date],textarea{width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);font:inherit}
+input[type=range]{width:100%;accent-color:var(--route)}
+.row{display:flex;gap:8px;align-items:center}
+.row>*{flex:1}
+.check{display:flex;align-items:center;gap:8px;color:var(--ink);font-size:14px;margin:10px 0 2px}
+.check input{accent-color:var(--route)}
+button{font:inherit;font-weight:500;padding:7px 10px;border-radius:6px;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
+button:hover{border-color:var(--muted)}
+button.primary{background:var(--route);border-color:var(--route);color:#fff}
+:focus-visible{outline:2px solid var(--route);outline-offset:2px}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:12px}
+.stat b{display:block;font-family:"Barlow Condensed",sans-serif;font-size:28px;font-weight:700;line-height:1}
+.stat span{font-size:12px;color:var(--muted)}
+.bar{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--line)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13px;margin-top:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+#status{font-size:13px;color:var(--muted);min-height:1.4em;margin-top:6px}
+#status.err{color:var(--err)}
+.hint{font-size:13px;color:var(--muted);margin:6px 0 0}
+#saved{list-style:none;padding:0;margin:8px 0 0}
+#saved li{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--line);font-size:14px}
+#saved li span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#saved button{padding:3px 8px;font-size:13px}
+#elev{height:150px;flex:none;background:var(--panel);border-top:1px solid var(--line);position:relative;display:none}
+#elev.on{display:block}
+#elev canvas{width:100%;height:100%;display:block}
+#elevTip{position:absolute;top:6px;right:10px;font-size:13px;color:var(--muted);pointer-events:none}
+.wp{width:26px;height:26px;border-radius:50%;background:var(--panel);border:3px solid var(--route);color:var(--ink);font:700 12px "Barlow Condensed",sans-serif;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.wp.start{background:var(--moss);border-color:var(--moss);color:#fff}
+.wp.end{background:var(--route);color:#fff}
+.leaflet-popup-content button{margin-top:4px}
+#toggle{display:none}
+#view3d{position:absolute;inset:0;z-index:1001;background:var(--paper)}
+#view3d[hidden]{display:none}
+#map3d{position:absolute;inset:0}
+.v3bar{position:absolute;left:10px;top:10px;right:56px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;background:var(--panel);color:var(--ink);padding:8px 10px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.25);z-index:2;font-size:14px}
+.v3bar label{display:flex;gap:6px;align-items:center;margin:0;color:var(--ink);font-size:14px}
+.v3bar select{width:auto}
+.v3bar input[type=range]{width:90px}
+#v3Status{color:var(--muted);flex-basis:100%}
+#v3Status:empty{display:none}
+.btn3d{font:700 15px "Barlow Condensed",sans-serif;padding:6px 10px;background:var(--panel);color:var(--ink);border:2px solid rgba(0,0,0,.2);border-radius:6px;cursor:pointer}
+.warn{background:rgba(230,0,0,.09);border-left:3px solid #E60000;padding:8px 10px;font-size:14px;margin-top:8px;border-radius:0 6px 6px 0}
+.wide{width:100%;margin-top:10px}
+#loopList{list-style:none;padding:0;margin:10px 0 0}
+#loopList li{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}
+#loopList li i{width:14px;height:4px;border-radius:2px;flex:none}
+#loopList li span{flex:1}
+#loopList li small{color:var(--muted);display:block}
+#loopList button{padding:3px 10px;font-size:13px}
+textarea{resize:vertical;min-height:58px}
+.poi{width:30px;height:30px;border-radius:50%;background:var(--panel);border:2px solid var(--earth);display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.editbox{margin-top:10px;padding:10px 12px 12px;border:1px solid var(--line);border-left:3px solid var(--earth);border-radius:0 8px 8px 0;background:var(--paper)}
+.editbox h3{font-family:"Barlow Condensed",sans-serif;font-weight:500;font-size:17px;margin:0}
+.editbox select,.editbox input,.editbox textarea{background:var(--panel)}
+#annoList{list-style:none;padding:0;margin:8px 0 0}
+#annoList li{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}
+#annoList li.empty{color:var(--muted);border:0}
+#annoList .ai{width:18px;flex:none;text-align:center;font-style:normal}
+#annoList .ai.seg{height:5px;border-radius:2px}
+#annoList li span{flex:1;min-width:0}
+#annoList li small{color:var(--muted);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#annoList button{padding:3px 10px;font-size:13px}
+.ralist{list-style:none;padding:0;margin:12px 0 0;font-size:14px}
+.ralist:empty{display:none}
+.ralist li{display:flex;gap:8px;padding:3px 0}
+.ralist b{font-family:"Barlow Condensed",sans-serif;font-weight:500;min-width:58px;color:var(--muted)}
+.pop-sub{font-size:12px;color:#5B6A6B}
+.pop-note{margin:6px 0 2px;white-space:pre-wrap}
+.pop-btns{display:flex;gap:6px}
+#modeBar{position:absolute;top:10px;left:56px;right:56px;margin:0 auto;max-width:560px;z-index:1000;background:var(--panel);color:var(--ink);border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.25);padding:8px 10px;display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;font-size:14px}
+#modeBar[hidden]{display:none}
+#modeText{flex-basis:100%}
+#modeBar .check{margin:0;flex:1;min-width:140px}
+@media (max-width:760px){
+  body{flex-direction:column-reverse}
+  aside{width:100%;height:auto;max-height:46%;border-right:0;border-top:1px solid var(--line);padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+  aside.min{max-height:56px;overflow:hidden}
+  main{height:auto;flex:1}
+  #toggle{display:block;position:absolute;right:14px;top:14px}
+  #elev{height:110px}
+  aside{position:relative}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<aside id="panel">
+  <button id="toggle" aria-label="Réduire ou agrandir le panneau">⇕</button>
+  <h1>Traceur VTT</h1>
+  <p class="lede">Cliquez sur la carte pour poser vos points. Glissez-les pour ajuster le tracé.</p>
+
+  <section>
+    <h2>Itinéraire</h2>
+    <label for="profile">Profil de calcul</label>
+    <select id="profile">
+      <option value="vtt">VTT réglable (ci-dessous)</option>
+      <option value="trekking">Trekking (BRouter)</option>
+      <option value="hiking-mountain">Sentiers montagne (BRouter)</option>
+      <option value="fastbike">Vélo rapide, routes (BRouter)</option>
+      <option value="shortest">Plus court</option>
+    </select>
+    <div id="vttOpts">
+      <label for="pTrail">Préférence pour les sentiers</label>
+      <input id="pTrail" type="range" min="0" max="3" step="0.25" value="1.5">
+      <label for="pAsphalt">Éviter l'asphalte</label>
+      <input id="pAsphalt" type="range" min="0" max="3" step="0.25" value="1">
+      <label for="pTraffic">Éviter les routes fréquentées</label>
+      <input id="pTraffic" type="range" min="0" max="5" step="0.5" value="2">
+      <label class="check"><input id="pHard" type="checkbox"> Autoriser les passages techniques (S3–S4)</label>
+    </div>
+    <label for="alt">Variante</label>
+    <select id="alt"><option value="0">Principale</option><option value="1">Alternative 1</option><option value="2">Alternative 2</option><option value="3">Alternative 3</option></select>
+    <div class="btns">
+      <button id="undo">Retirer le dernier point</button>
+      <button id="reverse">Inverser le sens</button>
+      <button id="loop">Boucler au départ</button>
+      <button id="clear">Tout effacer</button>
+      <button id="despur" style="grid-column:1/-1">Retirer les allers-retours</button>
+    </div>
+    <div id="status"></div>
+    <div id="chWarn" class="warn" hidden></div>
+    <div id="annoWarn" class="warn" hidden></div>
+  </section>
+
+  <section>
+    <h2>Boucle automatique</h2>
+    <div class="btns">
+      <button id="pickStart">Choisir le départ sur la carte</button>
+      <button id="useD">Partir du point D</button>
+    </div>
+    <label for="loopKm">Distance visée : <span id="loopKmVal">30</span> km</label>
+    <input id="loopKm" type="range" min="5" max="100" step="5" value="30">
+    <label for="loopDir">Direction</label>
+    <select id="loopDir">
+      <option value="any">Peu importe (4 propositions)</option>
+      <option value="0">Vers le nord</option><option value="45">Vers le nord-est</option>
+      <option value="90">Vers l'est</option><option value="135">Vers le sud-est</option>
+      <option value="180">Vers le sud</option><option value="225">Vers le sud-ouest</option>
+      <option value="270">Vers l'ouest</option><option value="315">Vers le nord-ouest</option>
+    </select>
+    <button class="primary wide" id="genLoop">Proposer des boucles</button>
+    <ul id="loopList"></ul>
+  </section>
+
+  <section>
+    <h2>Chasse en Wallonie</h2>
+    <label class="check"><input id="chOn" type="checkbox"> Afficher les zones de chasse</label>
+    <label for="chDate">Date de la sortie</label>
+    <input id="chDate" type="date">
+    <label class="check"><input id="chOpen" type="checkbox" checked> Montrer aussi les chasses sans fermeture</label>
+    <label class="check"><input id="chAvoid" type="checkbox"> Éviter les zones fermées dans le calcul</label>
+    <div id="chInfo" class="hint"></div>
+    <p class="hint">Source : ChasseOnWeb (SPW). Rouge : chemins fermés. Jaune : chasse annoncée, chemins ouverts. Information indicative, seules les affiches sur le terrain font foi. Une fermeture pour affût ne vaut qu'à l'aube et au crépuscule.</p>
+  </section>
+
+  <section>
+    <h2>Mes annotations</h2>
+    <p class="hint" style="margin:0 0 4px">Notez un passage ou un lieu : il reste sur la carte et s’enregistre dans ce navigateur.</p>
+    <div class="btns">
+      <button id="addPoi">+ Point d’intérêt</button>
+      <button id="addSeg">+ Tronçon de chemin</button>
+    </div>
+    <div id="annoEdit" class="editbox" hidden>
+      <h3 id="aTitle"></h3>
+      <label for="aType">Type</label>
+      <select id="aType"></select>
+      <label for="aName">Nom</label>
+      <input id="aName" type="text" placeholder="Facultatif, ex. : Descente des Fawes">
+      <label for="aNote">Note</label>
+      <textarea id="aNote" rows="3" placeholder="Ex. : racines glissantes après la pluie"></textarea>
+      <div class="btns">
+        <button class="primary" id="aSave">Enregistrer</button>
+        <button id="aDel">Supprimer</button>
+      </div>
+    </div>
+    <label class="check"><input id="annoShow" type="checkbox" checked> Afficher sur la carte</label>
+    <label class="check"><input id="annoAvoid" type="checkbox"> Éviter les tronçons « impraticables » dans le calcul</label>
+    <ul id="annoList"></ul>
+    <div class="btns">
+      <button id="annoExport">Sauvegarder dans un fichier</button>
+      <button id="annoImport">Charger un fichier</button>
+    </div>
+    <input id="annoFile" type="file" accept=".geojson,.json" hidden>
+  </section>
+
+  <section id="statsSec" hidden>
+    <h2>Le parcours</h2>
+    <div class="stats">
+      <div class="stat"><b id="sDist">–</b><span>km</span></div>
+      <div class="stat"><b id="sUp">–</b><span>m D+</span></div>
+      <div class="stat"><b id="sTime">–</b><span>durée estimée</span></div>
+    </div>
+    <div class="bar" id="surfBar"></div>
+    <div class="legend" id="surfLeg"></div>
+    <ul class="ralist" id="routeAnnos"></ul>
+  </section>
+
+  <section>
+    <h2>Cartes</h2>
+    <label for="base">Fond de carte</label>
+    <select id="base"></select>
+    <label for="blend">Mélanger avec</label>
+    <select id="blend"><option value="">Aucune</option></select>
+    <label for="blendOp">Opacité du mélange</label>
+    <input id="blendOp" type="range" min="0" max="1" step="0.05" value="0.5">
+    <label class="check"><input id="ovMtb" type="checkbox" checked> Itinéraires VTT balisés</label>
+    <input id="ovMtbOp" type="range" min="0" max="1" step="0.05" value="0.8" aria-label="Opacité des itinéraires balisés">
+    <label class="check"><input id="ovHill" type="checkbox"> Ombrage du relief</label>
+    <input id="ovHillOp" type="range" min="0" max="1" step="0.05" value="0.35" aria-label="Opacité du relief">
+    <button class="wide" id="open3d">Voir en 3D</button>
+  </section>
+
+  <section>
+    <h2>Fichiers</h2>
+    <div class="btns">
+      <button class="primary" id="exportGpx">Exporter en GPX</button>
+      <button id="importBtn">Importer un GPX</button>
+    </div>
+    <label class="check"><input id="gpxPois" type="checkbox" checked> Inclure mes points d’intérêt proches du tracé</label>
+    <input id="importFile" type="file" accept=".gpx" hidden>
+    <p class="hint">Un GPX importé s'affiche en pointillés comme trace de référence.</p>
+  </section>
+
+  <section>
+    <h2>Mes parcours</h2>
+    <div class="row"><input id="saveName" type="text" placeholder="Nom du parcours"><button id="save" style="flex:none">Enregistrer</button></div>
+    <ul id="saved"></ul>
+  </section>
+</aside>
+
+<main>
+  <div id="map"></div>
+  <div id="modeBar" hidden>
+    <span id="modeText"></span>
+    <label class="check" id="followWrap"><input id="annoFollow" type="checkbox" checked> Suivre les chemins</label>
+    <button id="mUndo">Retirer le dernier point</button>
+    <button id="mDone" class="primary">Terminer</button>
+    <button id="mCancel">Annuler</button>
+  </div>
+  <div id="elev"><canvas id="elevCanvas"></canvas><div id="elevTip"></div></div>
+  <div id="view3d" hidden>
+    <div id="map3d"></div>
+    <div class="v3bar">
+      <button id="v3Close">Revenir à la carte 2D</button>
+      <select id="v3Base" aria-label="Fond de carte de la vue 3D"></select>
+      <label>Relief <input id="v3Exag" type="range" min="1" max="3" step="0.1" value="1.5"></label>
+      <button id="v3Fly" class="primary">Survoler le parcours</button>
+      <select id="v3Speed" aria-label="Vitesse du survol">
+        <option value="150">Survol lent</option><option value="400" selected>Survol moyen</option><option value="1000">Survol rapide</option>
+      </select>
+      <span id="v3Status"></span>
+    </div>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const BROUTER = 'https://brouter.de/brouter';
+const $ = id => document.getElementById(id);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+/* ---------- Carte et couches ---------- */
+const map = L.map('map', { zoomControl: true }).setView([50.3, 5.6], 10);
+L.control.scale({ imperial: false }).addTo(map);
+
+const BASES = {
+  topo:   { name: 'OpenTopoMap (relief)', url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', o: { maxZoom: 17, attribution: '© OpenTopoMap, © contributeurs OSM' } },
+  cyclosm:{ name: 'CyclOSM (vélo)', url: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', o: { maxZoom: 20, attribution: '© CyclOSM, © contributeurs OSM' } },
+  ngi:    { name: 'IGN Belgique (Cartoweb)', url: 'https://cartoweb.wmts.ngi.be/1.0.0/topo/default/3857/{z}/{y}/{x}.png', o: { maxZoom: 18, attribution: '© Institut géographique national' } },
+  osm:    { name: 'OpenStreetMap', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', o: { maxZoom: 19, attribution: '© contributeurs OSM' } },
+  sat:    { name: 'Satellite (Esri)', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', o: { maxZoom: 19, attribution: '© Esri' } }
+};
+for (const [k, b] of Object.entries(BASES)) {
+  $('base').add(new Option(b.name, k));
+  $('blend').add(new Option(b.name, k));
+}
+let baseLayer = null, blendLayer = null;
+function setBase() {
+  if (baseLayer) map.removeLayer(baseLayer);
+  const b = BASES[$('base').value];
+  baseLayer = L.tileLayer(b.url, b.o).addTo(map);
+  baseLayer.bringToBack();
+  setBlend();
+}
+function setBlend() {
+  if (blendLayer) map.removeLayer(blendLayer);
+  blendLayer = null;
+  const k = $('blend').value;
+  if (k && k !== $('base').value) {
+    const b = BASES[k];
+    blendLayer = L.tileLayer(b.url, { ...b.o, opacity: +$('blendOp').value, zIndex: 2 }).addTo(map);
+  }
+}
+$('base').onchange = setBase;
+$('blend').onchange = setBlend;
+$('blendOp').oninput = () => blendLayer && blendLayer.setOpacity(+$('blendOp').value);
+
+const overlays = {
+  ovMtb:  L.tileLayer('https://tile.waymarkedtrails.org/mtb/{z}/{x}/{y}.png', { maxZoom: 18, zIndex: 5, attribution: '© Waymarked Trails' }),
+  ovHill: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}', { maxZoom: 16, zIndex: 4, attribution: '© Esri' })
+};
+for (const id of Object.keys(overlays)) {
+  const sync = () => {
+    overlays[id].setOpacity(+$(id + 'Op').value);
+    $(id).checked ? overlays[id].addTo(map) : map.removeLayer(overlays[id]);
+  };
+  $(id).onchange = sync; $(id + 'Op').oninput = sync; sync();
+}
+setBase();
+
+/* ---------- Points de passage ---------- */
+let waypoints = [];
+const routeGroup = L.layerGroup().addTo(map);
+let chClosed = [];
+let refTrack = null, hoverDot = null;
+
+function iconFor(i, n) {
+  const cls = i === 0 ? 'wp start' : (i === n - 1 ? 'wp end' : 'wp');
+  const label = i === 0 ? 'D' : (i === n - 1 ? 'A' : String(i));
+  return L.divIcon({ className: '', html: `<div class="${cls}">${label}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] });
+}
+function refreshIcons() { waypoints.forEach((m, i) => m.setIcon(iconFor(i, waypoints.length))); }
+
+function addWaypoint(latlng, at) {
+  const m = L.marker(latlng, { draggable: true, autoPan: true });
+  m.on('dragend', scheduleRoute);
+  m.bindPopup(() => {
+    const b = document.createElement('button');
+    b.textContent = 'Retirer ce point';
+    b.onclick = () => { map.closePopup(); removeWaypoint(m); };
+    return b;
+  });
+  m.addTo(map);
+  if (at === undefined) waypoints.push(m); else waypoints.splice(at, 0, m);
+  scheduleRoute();
+}
+function removeWaypoint(m) {
+  map.removeLayer(m);
+  waypoints = waypoints.filter(x => x !== m);
+  scheduleRoute();
+}
+function setWaypoints(list) {
+  waypoints.forEach(m => map.removeLayer(m));
+  waypoints = [];
+  list.forEach(ll => addWaypoint(L.latLng(ll[0], ll[1])));
+  scheduleRoute();
+}
+let pickMode = false;
+map.on('click', e => {
+  if (annoMode) { annoClick(e.latlng); return; }
+  if (pickMode) { setLoopStart(e.latlng); return; }
+  addWaypoint(e.latlng);
+});
+$('undo').onclick = () => waypoints.length && removeWaypoint(waypoints[waypoints.length - 1]);
+$('clear').onclick = () => setWaypoints([]);
+$('reverse').onclick = () => setWaypoints(waypoints.map(m => [m.getLatLng().lat, m.getLatLng().lng]).reverse());
+$('despur').onclick = () => {
+  if (!route) return;
+  const nw = fixSpurs(waypoints.map(m => m.getLatLng()), route.pts);
+  if (!nw) { setStatus('Aucun aller-retour lié à un point de passage sur ce tracé.'); return; }
+  nw.forEach((ll, i) => waypoints[i].setLatLng(ll));
+  scheduleRoute();
+};
+$('loop').onclick = () => { if (waypoints.length > 1) addWaypoint(waypoints[0].getLatLng()); };
+
+/* ---------- Profil VTT personnalisé (envoyé à BRouter) ---------- */
+function buildBrf() {
+  const trail = +$('pTrail').value, asph = +$('pAsphalt').value, traf = +$('pTraffic').value, hard = $('pHard').checked ? 1 : 0;
+  return `---context:global
+assign validForBikes 1
+assign processUnusedTags true
+assign downhillcost 0
+assign downhillcutoff 1.5
+assign uphillcost 0
+assign uphillcutoff 1.5
+assign pref_trail ${trail}
+assign avoid_asphalt ${asph}
+assign avoid_traffic ${traf}
+assign allow_hard ${hard}
+
+---context:way
+assign turncost 10
+assign initialcost 0
+assign bikeok bicycle=yes|designated|permissive|mtb
+assign ispaved surface=asphalt|paved|concrete|paving_stones|sett
+assign isunpaved surface=unpaved|gravel|ground|dirt|grass|compacted|sand|pebblestone|fine_gravel|earth|mud|clay|rock|stone|wood
+assign isforbidden or highway=motorway|motorway_link|trunk|trunk_link|construction|proposed|platform|raceway
+                   or highway=
+                   or bicycle=no|private|use_sidepath
+                      and access=no|private not bikeok
+assign toohard switch allow_hard mtb:scale=5|6 mtb:scale=3|4|5|6
+assign istrail and highway=path|bridleway|footway not ispaved
+assign isdirttrack and highway=track not or ispaved tracktype=grade1
+assign baseexcess switch istrail 0
+                  switch isdirttrack 0
+                  switch highway=path|bridleway|footway 1
+                  switch highway=track 0.7
+                  switch highway=cycleway switch isunpaved 0.1 0.9
+                  switch highway=steps 15
+                  switch highway=pedestrian 2
+                  switch highway=tertiary|tertiary_link 2.5
+                  switch highway=secondary|secondary_link 4
+                  switch highway=primary|primary_link 6
+                  1.3
+assign trafficexcess switch highway=primary|primary_link 3
+                     switch highway=secondary|secondary_link 2
+                     switch highway=tertiary|tertiary_link 1
+                     switch estimated_traffic_class=4|5|6 0.6
+                     0
+assign townexcess switch estimated_town_class=4|5|6 0.6 switch estimated_town_class=2|3 0.3 0
+assign forestexcess switch estimated_forest_class=4|5|6 0 switch estimated_forest_class=1|2|3 0.1 0.25
+assign asphaltexcess switch ispaved 1 switch isunpaved 0 switch istrail 0 switch isdirttrack 0 0.6
+assign restrictexcess switch access=agricultural 1 0
+assign costfactor switch or isforbidden toohard 10000
+                  add 1
+                  add multiply pref_trail add baseexcess add townexcess forestexcess
+                  add multiply avoid_asphalt asphaltexcess
+                  add multiply avoid_traffic trafficexcess
+                      restrictexcess
+
+---context:node
+assign initialcost 0
+`;
+}
+let customId = null, profileDirty = true;
+async function profileName() {
+  const p = $('profile').value;
+  if (p !== 'vtt') return p;
+  if (customId && !profileDirty) return customId;
+  const r = await fetch(BROUTER + '/profile' + (customId ? '/' + customId : ''), { method: 'POST', body: buildBrf() });
+  const j = await r.json();
+  if (j.error) throw new Error('profil VTT refusé : ' + j.error);
+  customId = j.profileid; profileDirty = false;
+  return customId;
+}
+['pTrail', 'pAsphalt', 'pTraffic', 'pHard'].forEach(id => $(id).addEventListener('change', () => { profileDirty = true; scheduleRoute(); }));
+$('profile').onchange = () => { $('vttOpts').hidden = $('profile').value !== 'vtt'; scheduleRoute(); };
+$('alt').onchange = scheduleRoute;
+
+/* ---------- Calcul de l'itinéraire ---------- */
+let timer = null, reqId = 0, route = null;
+function setStatus(t, err) { $('status').textContent = t; $('status').className = err ? 'err' : ''; }
+function scheduleRoute() { refreshIcons(); clearTimeout(timer); timer = setTimeout(computeRoute, 250); }
+
+const lonlatStr = lls => lls.map(p => p.lng.toFixed(6) + ',' + p.lat.toFixed(6)).join('|');
+const ringStr = r => { const st = Math.max(1, Math.ceil(r.length / 60)); return r.filter((_, i) => i % st === 0).map(([x, y]) => x.toFixed(5) + ',' + y.toFixed(5)).join(','); };
+
+// plain = true : sans tenir compte des tronçons à éviter (utilisé pour dessiner un tronçon).
+async function brouter(lonlats, prof, alt, zones, plain) {
+  const nogos = plain ? '' : annoNogos();
+  try { return await brouterCall(lonlats, prof, alt, zones, nogos); }
+  catch (e) {
+    if (!nogos) throw e;
+    const res = await brouterCall(lonlats, prof, alt, zones, '');
+    res.annoIgnored = true;
+    return res;
+  }
+}
+async function brouterCall(lonlats, prof, alt, zones, nogos) {
+  let url = `${BROUTER}?lonlats=${lonlats}&profile=${prof}&alternativeidx=${alt}&format=geojson`;
+  if (zones.length) url += '&polygons=' + zones.flatMap(z => z.rings.map(ringStr)).join('|');
+  if (nogos) url += '&nogos=' + nogos;
+  const r = await fetch(url);
+  const txt = await r.text();
+  if (!txt.trim().startsWith('{')) throw new Error(txt.trim().slice(0, 160) || 'erreur ' + r.status);
+  const gj = JSON.parse(txt);
+  const pts = gj.features[0].geometry.coordinates.map(c => ({ ll: L.latLng(c[1], c[0]), ele: c[2] }));
+  let d = 0;
+  pts.forEach((pt, i) => { if (i) d += pts[i - 1].ll.distanceTo(pt.ll); pt.d = d; });
+  return { gj, pts, props: gj.features[0].properties };
+}
+
+// Calcule un itinéraire ; si l'évitement est actif, ajoute comme zones interdites
+// les territoires fermés que le tracé traverse, puis recalcule (jusqu'à 4 passes).
+async function routeSmart(lonlats, prof, alt) {
+  let zones = [], res = await brouter(lonlats, prof, alt, zones);
+  res.stuck = false;
+  if (!$('chAvoid').checked || !chClosed.length) return res;
+  for (let i = 0; i < 4; i++) {
+    const extra = zonesCrossed(res.pts).filter(z => !zones.includes(z));
+    if (!extra.length) break;
+    zones = zones.concat(extra);
+    try { res = await brouter(lonlats, prof, alt, zones); res.stuck = false; }
+    catch (e) { res.stuck = true; break; }
+  }
+  return res;
+}
+
+let profileWarning = '';
+async function currentProfile() {
+  profileWarning = '';
+  try { return await profileName(); }
+  catch (e) {
+    profileWarning = 'Profil VTT refusé par le serveur (' + e.message + '). Calcul avec le profil trekking, qui emprunte davantage de routes. ';
+    return 'trekking';
+  }
+}
+
+async function computeRoute() {
+  const id = ++reqId;
+  if (waypoints.length < 2) { clearRoute(); setStatus(waypoints.length ? 'Ajoutez un deuxième point.' : ''); return; }
+  setStatus('Calcul en cours…');
+  try {
+    const prof = await currentProfile();
+    const res = await routeSmart(lonlatStr(waypoints.map(m => m.getLatLng())), prof, $('alt').value);
+    if (id !== reqId) return;
+    drawRoute(res);
+    let msg = profileWarning;
+    if (findSpurs(res.pts).some(sp => sp.len > 40)) msg += 'Ce tracé contient des allers-retours : le bouton « Retirer les allers-retours » peut les supprimer. ';
+    if (res.stuck) msg += 'Impossible de contourner toutes les zones fermées : un point de passage s’y trouve peut-être. ';
+    if (res.annoIgnored) msg += 'Impossible d’éviter vos tronçons impraticables : un point de passage s’y trouve peut-être.';
+    setStatus(msg, !!profileWarning);
+  } catch (e) {
+    if (id !== reqId) return;
+    setStatus('Itinéraire impossible : ' + e.message + '. Essayez de déplacer un point vers un chemin.', true);
+  }
+}
+function clearRoute() {
+  routeGroup.clearLayers(); route = null;
+  $('statsSec').hidden = true; $('elev').classList.remove('on'); $('chWarn').hidden = true; $('annoWarn').hidden = true;
+  update3d();
+  setTimeout(() => map.invalidateSize(), 0);
+}
+
+function classify(tags) {
+  const t = ' ' + (tags || '') + ' ';
+  const hw = (t.match(/ highway=(\S+)/) || [])[1] || '';
+  const sf = (t.match(/ surface=(\S+)/) || [])[1] || '';
+  const paved = /^(asphalt|paved|concrete|paving_stones|sett|concrete:plates)$/.test(sf);
+  if (['path', 'footway', 'bridleway'].includes(hw)) return paved ? 'road' : 'trail';
+  if (hw === 'track') return paved || (!sf && / tracktype=grade1 /.test(t)) ? 'road' : 'track';
+  if (sf && !paved) return 'track';
+  return 'road';
+}
+
+function surfaceShares(props) {
+  const sums = { trail: 0, track: 0, road: 0 };
+  const msgs = props.messages || [];
+  if (msgs.length > 1) {
+    const iD = msgs[0].indexOf('Distance'), iT = msgs[0].indexOf('WayTags');
+    msgs.slice(1).forEach(m => { sums[classify(m[iT])] += +m[iD] || 0; });
+  }
+  sums.total = sums.trail + sums.track + sums.road || 1;
+  return sums;
+}
+
+/* ---------- Allers-retours ---------- */
+const ptKey = ll => ll.lat.toFixed(6) + ',' + ll.lng.toFixed(6);
+// Un aller-retour : le tracé arrive à un point puis repart exactement par où il est venu.
+function findSpurs(pts) {
+  const P = [];
+  pts.forEach(p => { if (!P.length || ptKey(P[P.length - 1].ll) !== ptKey(p.ll)) P.push(p); });
+  const K = P.map(p => ptKey(p.ll)), spurs = [];
+  for (let t = 1; t < P.length - 1; t++) {
+    if (K[t - 1] !== K[t + 1]) continue;
+    let a = t - 1, b = t + 1;
+    while (a > 0 && b < P.length - 1 && K[a - 1] === K[b + 1]) { a--; b++; }
+    spurs.push({ base: P[a].ll, tip: P[t].ll, len: P[b].d - P[a].d });
+    t = b;
+  }
+  return spurs;
+}
+// Part du parcours empruntée deux fois (dans un sens ou dans l'autre).
+function overlapRatio(pts) {
+  const seen = new Set(); let dup = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const a = ptKey(pts[i - 1].ll), b = ptKey(pts[i].ll);
+    if (a === b) continue;
+    const e = a < b ? a + '|' + b : b + '|' + a;
+    if (seen.has(e)) dup += pts[i].d - pts[i - 1].d; else seen.add(e);
+  }
+  return dup / (pts[pts.length - 1].d || 1);
+}
+// Déplace chaque point intermédiaire responsable d'un aller-retour vers l'endroit où le tracé bifurque.
+function fixSpurs(wps, pts) {
+  const out = wps.slice(); let changed = false;
+  findSpurs(pts).filter(sp => sp.len > 40).forEach(sp => {
+    let bi = -1, bd = Infinity;
+    for (let i = 1; i < out.length - 1; i++) { const d = out[i].distanceTo(sp.tip); if (d < bd) { bd = d; bi = i; } }
+    if (bi > 0 && bd < 1500) { out[bi] = sp.base; changed = true; }
+  });
+  return changed ? out : null;
+}
+
+function drawRoute(res) {
+  const pts = res.pts, p = res.props, d = pts[pts.length - 1].d;
+  route = { pts, props: p };
+
+  routeGroup.clearLayers();
+  const lls = pts.map(x => x.ll);
+  L.polyline(lls, { color: '#fff', weight: 8, opacity: .85, interactive: false }).addTo(routeGroup);
+  L.polyline(lls, { color: css('--route'), weight: 5, interactive: false }).addTo(routeGroup);
+
+  const km = (+p['track-length'] || d) / 1000;
+  const up = +p['filtered ascend'] || 0;
+  const h = km / 13 + up / 650;
+  $('sDist').textContent = km.toFixed(1).replace('.', ',');
+  $('sUp').textContent = Math.round(up);
+  $('sTime').textContent = Math.floor(h) + 'h' + String(Math.round((h % 1) * 60)).padStart(2, '0');
+
+  const sums = surfaceShares(p), tot = sums.total;
+  const names = { trail: 'Sentier', track: 'Chemin de terre', road: 'Route / asphalte' };
+  $('surfBar').innerHTML = Object.keys(sums).map(k => `<div style="width:${sums[k] / tot * 100}%;background:var(--${k})"></div>`).join('');
+  $('surfLeg').innerHTML = Object.keys(sums).map(k => `<span><i style="background:var(--${k})"></i>${names[k]} ${Math.round(sums[k] / tot * 100)} %</span>`).join('');
+  $('statsSec').hidden = false;
+
+  $('elev').classList.add('on');
+  setTimeout(() => { map.invalidateSize(); drawElevation(); }, 0);
+  checkRouteChasse();
+  checkRouteAnnos();
+  update3d();
+}
+
+/* ---------- Profil altimétrique ---------- */
+const cv = $('elevCanvas');
+function elevGeom() {
+  const w = cv.clientWidth, h = cv.clientHeight, pad = { l: 44, r: 12, t: 24, b: 22 };
+  const e = route.pts.map(p => p.ele).filter(v => v != null);
+  const min = Math.floor(Math.min(...e) / 10) * 10, max = Math.ceil(Math.max(...e) / 10) * 10 + 10;
+  const total = route.pts[route.pts.length - 1].d || 1;
+  return { w, h, pad, min, max, total,
+    x: d => pad.l + d / total * (w - pad.l - pad.r),
+    y: v => pad.t + (1 - (v - min) / (max - min)) * (h - pad.t - pad.b) };
+}
+function drawElevation(hoverIdx) {
+  if (!route || !$('elev').classList.contains('on')) return;
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = cv.clientWidth * dpr; cv.height = cv.clientHeight * dpr;
+  const c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const g = elevGeom(), pts = route.pts.filter(p => p.ele != null);
+  if (pts.length < 2) return;
+  c.clearRect(0, 0, g.w, g.h);
+  c.font = '12px Barlow, sans-serif'; c.fillStyle = css('--muted'); c.strokeStyle = css('--line'); c.lineWidth = 1;
+  for (let i = 0; i <= 3; i++) {
+    const v = g.min + (g.max - g.min) * i / 3, y = g.y(v);
+    c.beginPath(); c.moveTo(g.pad.l, y); c.lineTo(g.w - g.pad.r, y); c.stroke();
+    c.fillText(Math.round(v) + ' m', 4, y + 4);
+  }
+  const step = g.total > 40000 ? 10000 : g.total > 15000 ? 5000 : g.total > 5000 ? 2000 : 1000;
+  for (let d = step; d < g.total; d += step) c.fillText(d / 1000 + ' km', g.x(d) - 12, g.h - 5);
+  c.beginPath(); c.moveTo(g.x(pts[0].d), g.y(g.min));
+  pts.forEach(p => c.lineTo(g.x(p.d), g.y(p.ele)));
+  c.lineTo(g.x(pts[pts.length - 1].d), g.y(g.min)); c.closePath();
+  c.fillStyle = css('--earth-soft'); c.fill();
+  c.beginPath(); pts.forEach((p, i) => i ? c.lineTo(g.x(p.d), g.y(p.ele)) : c.moveTo(g.x(p.d), g.y(p.ele)));
+  c.strokeStyle = css('--earth'); c.lineWidth = 2; c.stroke();
+  const hits = route.annoHits;
+  if (hits) {
+    hits.segs.forEach(h => {
+      c.fillStyle = (SEG_TYPES[h.s.type] || SEG_TYPES.note).color;
+      c.fillRect(g.x(h.d1), g.h - g.pad.b - 4, Math.max(3, g.x(h.d2) - g.x(h.d1)), 4);
+    });
+    c.font = '14px sans-serif'; c.textAlign = 'center';
+    hits.pois.forEach(h => c.fillText((POI_TYPES[h.p.type] || POI_TYPES.autre).ico, g.x(h.d), g.pad.t - 6));
+    c.textAlign = 'start';
+  }
+  if (hoverIdx != null) {
+    const p = route.pts[hoverIdx];
+    c.strokeStyle = css('--route'); c.lineWidth = 1;
+    c.beginPath(); c.moveTo(g.x(p.d), g.pad.t); c.lineTo(g.x(p.d), g.h - g.pad.b); c.stroke();
+  }
+}
+function slopeAt(i) {
+  const pts = route.pts, a = pts[Math.max(0, i - 3)], b = pts[Math.min(pts.length - 1, i + 3)];
+  return b.d > a.d && a.ele != null && b.ele != null ? (b.ele - a.ele) / (b.d - a.d) * 100 : 0;
+}
+cv.addEventListener('mousemove', ev => {
+  if (!route) return;
+  const g = elevGeom(), r = cv.getBoundingClientRect();
+  const d = (ev.clientX - r.left - g.pad.l) / (g.w - g.pad.l - g.pad.r) * g.total;
+  let i = route.pts.findIndex(p => p.d >= d); if (i < 0) i = route.pts.length - 1;
+  const p = route.pts[i];
+  drawElevation(i);
+  $('elevTip').textContent = `${(p.d / 1000).toFixed(2).replace('.', ',')} km · ${Math.round(p.ele ?? 0)} m · pente ${slopeAt(i).toFixed(0)} %`;
+  if (!hoverDot) hoverDot = L.circleMarker(p.ll, { radius: 7, color: '#fff', weight: 2, fillColor: css('--route'), fillOpacity: 1 }).addTo(map);
+  else hoverDot.setLatLng(p.ll);
+});
+cv.addEventListener('mouseleave', () => { drawElevation(); $('elevTip').textContent = ''; if (hoverDot) { map.removeLayer(hoverDot); hoverDot = null; } });
+window.addEventListener('resize', () => drawElevation());
+
+/* ---------- GPX ---------- */
+function download(name, text, type = 'application/gpx+xml') {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+$('exportGpx').onclick = () => {
+  if (!route) { setStatus('Tracez d’abord un itinéraire avant d’exporter.', true); return; }
+  const name = ($('saveName').value || 'Parcours VTT').replace(/[<&>]/g, '');
+  const trk = route.pts.map(p => `<trkpt lat="${p.ll.lat.toFixed(6)}" lon="${p.ll.lng.toFixed(6)}">${p.ele != null ? `<ele>${p.ele}</ele>` : ''}</trkpt>`).join('\n');
+  const wpts = $('gpxPois').checked ? annos.pois.map(p => ({ p, n: nearestOnRoute(p.lat, p.lng, 150) })).filter(x => x.n)
+    .sort((a, b) => a.n.d - b.n.d).map(({ p }) => { const t = POI_TYPES[p.type] || POI_TYPES.autre;
+      return `<wpt lat="${p.lat.toFixed(6)}" lon="${p.lng.toFixed(6)}"><name>${xml(p.name || t.label)}</name>${p.note ? `<desc>${xml(p.note)}</desc>` : ''}<type>${xml(t.label)}</type></wpt>\n`; }).join('') : '';
+  download(name.replace(/\s+/g, '_') + '.gpx',
+    `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Traceur VTT" xmlns="http://www.topografix.com/GPX/1/1">\n${wpts}<trk><name>${name}</name><trkseg>\n${trk}\n</trkseg></trk>\n</gpx>`);
+};
+$('importBtn').onclick = () => $('importFile').click();
+$('importFile').onchange = async () => {
+  const f = $('importFile').files[0]; if (!f) return;
+  const doc = new DOMParser().parseFromString(await f.text(), 'application/xml');
+  const pts = [...doc.querySelectorAll('trkpt, rtept')].map(n => [+n.getAttribute('lat'), +n.getAttribute('lon')]);
+  if (!pts.length) { setStatus('Ce fichier ne contient aucune trace lisible.', true); return; }
+  if (refTrack) map.removeLayer(refTrack);
+  refTrack = L.polyline(pts, { color: css('--ink'), weight: 3, dashArray: '6 6', opacity: .8 }).addTo(map);
+  map.fitBounds(refTrack.getBounds(), { padding: [30, 30] });
+  setStatus('Trace « ' + f.name + ' » affichée en pointillés.');
+  $('importFile').value = '';
+};
+
+/* ---------- Parcours enregistrés (dans ce navigateur) ---------- */
+const KEY = 'traceur-vtt-parcours';
+function loadSaved() { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; } }
+function storeSaved(list) { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch { setStatus('Enregistrement impossible dans ce navigateur.', true); } }
+function renderSaved() {
+  const list = loadSaved();
+  $('saved').innerHTML = list.length ? '' : '<li><span>Aucun parcours enregistré.</span></li>';
+  list.forEach((r, i) => {
+    const li = document.createElement('li');
+    const s = document.createElement('span'); s.textContent = r.name + (r.km ? ` (${r.km} km)` : ''); li.append(s);
+    const open = document.createElement('button'); open.textContent = 'Ouvrir';
+    open.onclick = () => { $('profile').value = r.profile || 'vtt'; $('profile').onchange(); $('saveName').value = r.name; setWaypoints(r.wps); map.fitBounds(L.latLngBounds(r.wps), { padding: [40, 40] }); };
+    const del = document.createElement('button'); del.textContent = 'Supprimer';
+    del.onclick = () => { const l = loadSaved(); l.splice(i, 1); storeSaved(l); renderSaved(); };
+    li.append(open, del); $('saved').append(li);
+  });
+}
+$('save').onclick = () => {
+  if (waypoints.length < 2) { setStatus('Posez au moins deux points avant d’enregistrer.', true); return; }
+  const list = loadSaved();
+  list.unshift({ name: $('saveName').value.trim() || 'Parcours du ' + new Date().toLocaleDateString('fr-BE'),
+    wps: waypoints.map(m => [m.getLatLng().lat, m.getLatLng().lng]), profile: $('profile').value,
+    km: route ? (route.pts[route.pts.length - 1].d / 1000).toFixed(1) : null });
+  storeSaved(list); renderSaved(); setStatus('Parcours enregistré.');
+};
+renderSaved();
+
+/* ---------- Chasse (ChasseOnWeb, SPW) ---------- */
+const CH = 'https://geoservices3.wallonie.be/arcgis/rest/services/APP_DNFEXT/CHASSE_DATEFERM/MapServer';
+const chLayer = L.geoJSON(null, {
+  interactive: false,
+  style: f => f.properties.FERMETURE === 'Oui'
+    ? { color: '#E60000', weight: 1.5, fillColor: '#E60000', fillOpacity: .28 }
+    : { color: '#B8A200', weight: 1, fillColor: '#E6D400', fillOpacity: .25 }
+});
+const ChTiles = L.TileLayer.extend({
+  getTileUrl(c) {
+    const nwP = c.scaleBy(L.point(256, 256)), seP = nwP.add([256, 256]);
+    const nw = L.CRS.EPSG3857.project(map.unproject(nwP, c.z)), se = L.CRS.EPSG3857.project(map.unproject(seP, c.z));
+    return CH + '/export?' + new URLSearchParams({ bbox: [nw.x, se.y, se.x, nw.y].join(','), bboxSR: 3857, imageSR: 3857,
+      size: '256,256', format: 'png32', transparent: true, layers: 'show:0', layerDefs: JSON.stringify({ 0: this.options.where }), f: 'image' });
+  }
+});
+let chTiles = null;
+const localISO = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const fmtDate = iso => new Date(iso + 'T12:00:00').toLocaleDateString('fr-BE', { weekday: 'long', day: 'numeric', month: 'long' });
+$('chDate').value = localISO(new Date());
+
+function prepZone(f) {
+  const g = f.geometry, polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+  const b = [90, 180, -90, -180];
+  polys.forEach(p => p[0].forEach(([x, y]) => { b[0] = Math.min(b[0], y); b[1] = Math.min(b[1], x); b[2] = Math.max(b[2], y); b[3] = Math.max(b[3], x); }));
+  return { polys, rings: polys.map(p => p[0]), b, mode: f.properties.MODE_CHASSE_TXT || '' };
+}
+function inRing(x, y, r) {
+  let ins = false;
+  for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+    const [xi, yi] = r[i], [xj, yj] = r[j];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) ins = !ins;
+  }
+  return ins;
+}
+function inZone(z, lat, lng) {
+  if (lat < z.b[0] || lat > z.b[2] || lng < z.b[1] || lng > z.b[3]) return false;
+  return z.polys.some(p => inRing(lng, lat, p[0]) && !p.slice(1).some(h => inRing(lng, lat, h)));
+}
+const zonesCrossed = pts => chClosed.filter(z => pts.some(p => inZone(z, p.ll.lat, p.ll.lng)));
+
+function checkRouteChasse() {
+  const w = $('chWarn');
+  if (!route || !chClosed.length) { w.hidden = true; return; }
+  const hit = zonesCrossed(route.pts);
+  if (!hit.length) { w.hidden = true; return; }
+  const n = hit.length, pl = n > 1 ? 's' : '';
+  const affut = hit.every(z => /affut/i.test(z.mode));
+  w.textContent = `Ce tracé traverse ${n} territoire${pl} fermé${pl} pour la chasse le ${fmtDate($('chDate').value)}` +
+    (affut ? ' (affût : fermeture à l’aube et au crépuscule seulement).' : '.') + ' Cochez « Éviter les zones fermées » ou modifiez le parcours.';
+  w.hidden = false;
+}
+
+let chReq = 0;
+async function loadChasse() {
+  const id = ++chReq;
+  chLayer.clearLayers(); chClosed = [];
+  if (chTiles) { map.removeLayer(chTiles); chTiles = null; }
+  const need = $('chOn').checked || $('chAvoid').checked, d = $('chDate').value;
+  if (!need || !d) { map.removeLayer(chLayer); $('chInfo').textContent = ''; checkRouteChasse(); return; }
+  const prev = localISO(new Date(new Date(d + 'T12:00:00').getTime() - 86400000));
+  const where = `DATE_CHASSE >= TIMESTAMP '${prev} 12:00:00' AND DATE_CHASSE < TIMESTAMP '${d} 12:00:00'`;
+  $('chInfo').textContent = 'Chargement des zones de chasse…';
+  try {
+    const r = await fetch(CH + '/0/query?' + new URLSearchParams({ where, outFields: 'FERMETURE,MODE_CHASSE_TXT,N_LOT',
+      returnGeometry: 'true', outSR: '4326', maxAllowableOffset: '0.0002', geometryPrecision: '5', f: 'geojson' }));
+    const gj = await r.json();
+    if (id !== chReq) return;
+    if (gj.error) throw new Error(gj.error.message || 'erreur du service');
+    const feats = (gj.features || []).filter(f => f.geometry);
+    const closed = feats.filter(f => f.properties.FERMETURE === 'Oui');
+    chClosed = closed.map(prepZone);
+    chLayer.addData({ type: 'FeatureCollection', features: $('chOpen').checked ? feats : closed });
+    $('chOn').checked ? chLayer.addTo(map) : map.removeLayer(chLayer);
+    $('chInfo').textContent = `Le ${fmtDate(d)} : ${closed.length} territoire${closed.length > 1 ? 's' : ''} avec chemins fermés, ${feats.length - closed.length} chasse${feats.length - closed.length > 1 ? 's' : ''} sans fermeture.`;
+  } catch (e) {
+    if (id !== chReq) return;
+    $('chInfo').textContent = 'Données détaillées indisponibles (' + e.message + '). Affichage en image seulement, sans alerte ni évitement.';
+    if ($('chOn').checked) chTiles = new ChTiles('', { where: where + ($('chOpen').checked ? '' : " AND FERMETURE = 'Oui'"), opacity: .7, zIndex: 6 }).addTo(map);
+  }
+  checkRouteChasse();
+  update3d();
+  if ($('chAvoid').checked && waypoints.length > 1) scheduleRoute();
+}
+['chOn', 'chDate', 'chOpen'].forEach(id => $(id).addEventListener('change', loadChasse));
+$('chAvoid').addEventListener('change', () => { if ($('chAvoid').checked) loadChasse(); else scheduleRoute(); });
+
+/* ---------- Boucle automatique ---------- */
+let loopStart = null, loopGen = 0;
+const loopPreview = L.layerGroup().addTo(map);
+const LOOP_COLORS = ['#2E6FD8', '#E08A00', '#7B3FC4', '#0E9A8A'];
+const DIRS = ['le nord', 'le nord-est', 'l’est', 'le sud-est', 'le sud', 'le sud-ouest', 'l’ouest', 'le nord-ouest'];
+
+function setLoopStart(ll) {
+  pickMode = false; map.getContainer().style.cursor = '';
+  if (!loopStart) {
+    loopStart = L.marker(ll, { draggable: true, icon: L.divIcon({ className: '', html: '<div class="wp start">⌂</div>', iconSize: [26, 26], iconAnchor: [13, 13] }) }).addTo(map);
+    loopStart.bindTooltip('Départ de la boucle');
+  } else loopStart.setLatLng(ll);
+  setStatus('Départ placé. Réglez la distance puis cliquez sur « Proposer des boucles ».');
+}
+$('pickStart').onclick = () => { cancelMode(); pickMode = true; map.getContainer().style.cursor = 'crosshair'; setStatus('Cliquez sur la carte pour placer le départ de la boucle.'); };
+$('useD').onclick = () => waypoints.length ? setLoopStart(waypoints[0].getLatLng()) : setStatus('Aucun point D sur la carte pour l’instant.', true);
+$('loopKm').oninput = () => { $('loopKmVal').textContent = $('loopKm').value; };
+
+function dest(ll, brg, dist) {
+  const R = 6371000, dl = dist / R, th = brg * Math.PI / 180, p1 = ll.lat * Math.PI / 180, l1 = ll.lng * Math.PI / 180;
+  const p2 = Math.asin(Math.sin(p1) * Math.cos(dl) + Math.cos(p1) * Math.sin(dl) * Math.cos(th));
+  const l2 = l1 + Math.atan2(Math.sin(th) * Math.sin(dl) * Math.cos(p1), Math.cos(dl) - Math.sin(p1) * Math.sin(p2));
+  return L.latLng(p2 * 180 / Math.PI, l2 * 180 / Math.PI);
+}
+// Cercle passant par le départ, centré dans la direction choisie, avec 3 points intermédiaires.
+function loopPoints(start, brg, r) {
+  const c = dest(start, brg, r), back = (brg + 180) % 360;
+  return [start, dest(c, back + 90, r), dest(c, brg, r), dest(c, back + 270, r), start];
+}
+// Rapproche chaque point visé du chemin de terre ou du sentier le plus proche (données OSM via Overpass),
+// en évitant les extrémités de chemin pour ne pas créer d'impasse.
+async function snapToTrails(points) {
+  const q = '[out:json][timeout:25];(' + points.map(p =>
+    `way(around:700,${p.lat.toFixed(5)},${p.lng.toFixed(5)})[highway~"^(path|track|bridleway)$"][surface!~"^(asphalt|paved|concrete|paving_stones|sett)$"][tracktype!=grade1][access!~"^(private|no)$"][bicycle!~"^(no|private)$"];`
+  ).join('') + ');out geom qt;';
+  try {
+    const r = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(q) });
+    const j = await r.json();
+    const ways = (j.elements || []).filter(e => e.geometry && e.geometry.length >= 5).map(e => e.geometry.map(g => L.latLng(g.lat, g.lon)))
+      .filter(g => g.reduce((s, ll, i) => i ? s + g[i - 1].distanceTo(ll) : 0, 0) > 250);
+    return points.map(p => {
+      let best = p, bd = Infinity;
+      ways.forEach(g => { for (let i = 2; i < g.length - 2; i++) { const d = g[i].distanceTo(p); if (d < bd) { bd = d; best = g[i]; } } });
+      return best;
+    });
+  } catch (e) { console.warn('Overpass indisponible', e); return points; }
+}
+
+$('genLoop').onclick = async () => {
+  if (!loopStart) { setStatus('Placez d’abord le départ de la boucle (sur la carte ou depuis le point D).', true); return; }
+  const gen = ++loopGen, target = +$('loopKm').value * 1000, start = loopStart.getLatLng();
+  const dirVal = $('loopDir').value, off = Math.random() * 90;
+  const brgs = dirVal === 'any' ? [0, 90, 180, 270].map(b => (b + off) % 360) : [-35, 0, 35].map(b => (+dirVal + b + 360) % 360);
+  loopPreview.clearLayers(); $('loopList').innerHTML = '';
+  const prof = await currentProfile();
+  const cands = brgs.map(brg => ({ brg, r: target / (2 * Math.PI * 1.35), best: null }));
+
+  for (let it = 0; it < 2; it++) {
+    const active = cands.filter(c => !c.best || c.best.err >= 0.1);
+    if (!active.length) break;
+    setStatus(`Recherche des chemins et sentiers autour du départ (passe ${it + 1}/2)…`);
+    const snapped = await snapToTrails(active.flatMap(c => loopPoints(start, c.brg, c.r).slice(1, 4)));
+    if (gen !== loopGen) return;
+    for (let k = 0; k < active.length; k++) {
+      const c = active[k], wps = [start, ...snapped.slice(k * 3, k * 3 + 3), start];
+      setStatus(`Calcul des boucles (passe ${it + 1}/2, ${k + 1}/${active.length})…`);
+      try {
+        const res = await routeSmart(lonlatStr(wps), prof, 0);
+        if (gen !== loopGen) return;
+        const len = res.pts[res.pts.length - 1].d, err = Math.abs(len - target) / target;
+        if (!c.best || err < c.best.err) c.best = { wps, res, len, err };
+        c.r *= target / len;
+      } catch (e) { console.warn(e); }
+    }
+  }
+
+  setStatus('Suppression des allers-retours…');
+  for (const c of cands) {
+    for (let i = 0; c.best && i < 2; i++) {
+      const nw = fixSpurs(c.best.wps, c.best.res.pts);
+      if (!nw) break;
+      try {
+        const res = await routeSmart(lonlatStr(nw), prof, 0);
+        if (gen !== loopGen) return;
+        c.best = { wps: nw, res, len: res.pts[res.pts.length - 1].d };
+      } catch (e) { break; }
+    }
+  }
+  if (gen !== loopGen) return;
+
+  const done = cands.filter(c => c.best).map(c => {
+    const b = c.best, sh = surfaceShares(b.res.props), ov = overlapRatio(b.res.pts), err = Math.abs(b.len - target) / target;
+    return { ...b, brg: c.brg, ov, offroad: (sh.trail + sh.track) / sh.total, score: err * 2 + sh.road / sh.total + ov * 2 };
+  }).sort((x, y) => x.score - y.score);
+
+  done.forEach((c, n) => {
+    const color = LOOP_COLORS[n % LOOP_COLORS.length];
+    const line = L.polyline(c.res.pts.map(p => p.ll), { color, weight: 4, opacity: .75, interactive: false }).addTo(loopPreview);
+    const up = Math.round(+c.res.props['filtered ascend'] || 0), km = (c.len / 1000).toFixed(1).replace('.', ',');
+    const notes = [`${km} km`, `${up} m D+`, `${Math.round(c.offroad * 100)} % hors asphalte`];
+    if (c.ov > 0.05) notes.push(`${Math.round(c.ov * 100)} % en aller-retour`);
+    if (c.res.stuck) notes.push('traverse une zone fermée');
+    const li = document.createElement('li');
+    li.innerHTML = `<i style="background:${color}"></i><span>Par ${DIRS[Math.round(c.brg / 45) % 8]}<small>${notes.join(', ')}</small></span>`;
+    const b = document.createElement('button'); b.textContent = 'Choisir';
+    b.onclick = () => {
+      loopGen++; loopPreview.clearLayers(); $('loopList').innerHTML = '';
+      $('alt').value = '0';
+      setWaypoints(c.wps.map(p => [p.lat, p.lng]));
+    };
+    li.onmouseenter = () => line.setStyle({ weight: 7, opacity: 1 }).bringToFront();
+    li.onmouseleave = () => line.setStyle({ weight: 4, opacity: .75 });
+    li.append(b); $('loopList').append(li);
+  });
+  if (done.length) {
+    map.fitBounds(loopPreview.getLayers().reduce((bb, l) => bb.extend(l.getBounds()), L.latLngBounds([start, start])), { padding: [30, 30] });
+    setStatus(profileWarning + 'Boucles classées de la plus adaptée à la moins adaptée. Survolez pour comparer, puis choisissez.', !!profileWarning);
+  } else setStatus('Aucune boucle trouvée depuis ce départ. Essayez une autre distance ou déplacez le départ vers un chemin.', true);
+};
+
+/* ---------- Vue 3D (MapLibre + relief Terrarium) ---------- */
+const ML = 'https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/';
+const TERR = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
+let map3d = null, ready3d = false, flyId = null;
+for (const [k, b] of Object.entries(BASES)) $('v3Base').add(new Option(b.name, k));
+$('v3Base').value = 'sat';
+
+function loadScript(src) {
+  return new Promise((res, rej) => { const el = document.createElement('script'); el.src = src; el.onload = res; el.onerror = () => rej(new Error('chargement impossible')); document.head.append(el); });
+}
+const tilesFor = k => { const u = BASES[k].url; return u.includes('{s}') ? ['a', 'b', 'c'].map(x => u.replace('{s}', x)) : [u]; };
+
+function setBase3d() {
+  if (!ready3d) return;
+  if (map3d.getLayer('base')) map3d.removeLayer('base');
+  if (map3d.getSource('base')) map3d.removeSource('base');
+  const b = BASES[$('v3Base').value];
+  map3d.addSource('base', { type: 'raster', tiles: tilesFor($('v3Base').value), tileSize: 256, maxzoom: b.o.maxZoom, attribution: b.o.attribution });
+  map3d.addLayer({ id: 'base', type: 'raster', source: 'base' }, map3d.getLayer('hs') ? 'hs' : undefined);
+}
+
+function update3d() {
+  if (!ready3d) return;
+  const line = route ? { type: 'Feature', geometry: { type: 'LineString', coordinates: route.pts.map(p => [p.ll.lng, p.ll.lat]) }, properties: {} } : null;
+  map3d.getSource('route').setData({ type: 'FeatureCollection', features: line ? [line] : [] });
+  map3d.getSource('wps').setData({ type: 'FeatureCollection', features: waypoints.map(m => ({ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [m.getLatLng().lng, m.getLatLng().lat] } })) });
+  map3d.getSource('chasse').setData($('chOn').checked ? chLayer.toGeoJSON() : { type: 'FeatureCollection', features: [] });
+  const show = $('annoShow').checked;
+  map3d.getSource('annoSegs').setData({ type: 'FeatureCollection', features: show ? annos.segs.map(s => ({ type: 'Feature',
+    properties: { color: (SEG_TYPES[s.type] || SEG_TYPES.note).color }, geometry: { type: 'LineString', coordinates: s.pts.map(([a, b]) => [b, a]) } })) : [] });
+  map3d.getSource('annoPois').setData({ type: 'FeatureCollection', features: show ? annos.pois.map(p => ({ type: 'Feature', properties: {},
+    geometry: { type: 'Point', coordinates: [p.lng, p.lat] } })) : [] });
+}
+
+async function open3d() {
+  $('view3d').hidden = false;
+  const c = map.getCenter();
+  if (!window.maplibregl) {
+    $('v3Status').textContent = 'Chargement du moteur 3D…';
+    const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = ML + 'maplibre-gl.css'; document.head.append(l);
+    try { await loadScript(ML + 'maplibre-gl.js'); }
+    catch (e) { $('v3Status').textContent = 'Le moteur 3D n’a pas pu être chargé. Vérifiez la connexion internet.'; return; }
+  }
+  if (!map3d) {
+    map3d = new maplibregl.Map({
+      container: 'map3d', center: [c.lng, c.lat], zoom: map.getZoom() - 1, pitch: 60, bearing: -20, maxPitch: 80,
+      style: { version: 8, sources: {}, layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#dfe5dc' } }] }
+    });
+    map3d.addControl(new maplibregl.NavigationControl({ visualizePitch: true }));
+    map3d.getCanvas().addEventListener('pointerdown', stopFly);
+    map3d.getCanvas().addEventListener('wheel', stopFly);
+    await new Promise(r => map3d.on('load', r));
+    const dem = { type: 'raster-dem', tiles: [TERR], encoding: 'terrarium', tileSize: 256, maxzoom: 15, attribution: 'Relief : Terrain Tiles (AWS)' };
+    map3d.addSource('dem', dem);
+    map3d.addSource('demhs', { ...dem });
+    map3d.addLayer({ id: 'hs', type: 'hillshade', source: 'demhs', paint: { 'hillshade-exaggeration': 0.3 } });
+    map3d.addSource('chasse', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    map3d.addLayer({ id: 'chasse', type: 'fill', source: 'chasse', paint: {
+      'fill-color': ['match', ['get', 'FERMETURE'], 'Oui', '#E60000', '#E6D400'], 'fill-opacity': 0.3 } });
+    map3d.addSource('annoSegs', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    map3d.addLayer({ id: 'annoSegs', type: 'line', source: 'annoSegs', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': 4 } });
+    map3d.addSource('route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    map3d.addLayer({ id: 'route-casing', type: 'line', source: 'route', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#ffffff', 'line-width': 8 } });
+    map3d.addLayer({ id: 'route', type: 'line', source: 'route', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#D6246E', 'line-width': 5 } });
+    map3d.addSource('wps', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    map3d.addLayer({ id: 'wps', type: 'circle', source: 'wps', paint: { 'circle-radius': 6, 'circle-color': '#ffffff', 'circle-stroke-color': '#D6246E', 'circle-stroke-width': 3 } });
+    map3d.addSource('annoPois', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    map3d.addLayer({ id: 'annoPois', type: 'circle', source: 'annoPois', paint: { 'circle-radius': 6, 'circle-color': '#ffffff', 'circle-stroke-color': '#8A6A45', 'circle-stroke-width': 3 } });
+    map3d.addSource('rider', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    map3d.addLayer({ id: 'rider', type: 'circle', source: 'rider', paint: { 'circle-radius': 8, 'circle-color': '#D6246E', 'circle-stroke-color': '#ffffff', 'circle-stroke-width': 3 } });
+    map3d.setTerrain({ source: 'dem', exaggeration: +$('v3Exag').value });
+    ready3d = true;
+    setBase3d();
+  } else {
+    map3d.resize();
+  }
+  $('v3Status').textContent = '';
+  update3d();
+  if (route) {
+    const b = L.latLngBounds(route.pts.map(p => p.ll));
+    map3d.fitBounds([[b.getWest(), b.getSouth()], [b.getEast(), b.getNorth()]], { padding: 60, bearing: map3d.getBearing(), duration: 0 });
+    map3d.setPitch(60);
+  } else map3d.jumpTo({ center: [c.lng, c.lat], zoom: map.getZoom() - 1 });
+}
+
+function pointAt(dist) {
+  const P = route.pts; let lo = 0, hi = P.length - 1;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (P[m].d < dist) lo = m; else hi = m; }
+  const a = P[lo], b = P[hi], f = b.d > a.d ? (dist - a.d) / (b.d - a.d) : 0;
+  return { lat: a.ll.lat + (b.ll.lat - a.ll.lat) * f, lng: a.ll.lng + (b.ll.lng - a.ll.lng) * f, ele: a.ele != null && b.ele != null ? a.ele + (b.ele - a.ele) * f : null };
+}
+function bearingTo(a, b) {
+  const r = Math.PI / 180, y = Math.sin((b.lng - a.lng) * r) * Math.cos(b.lat * r);
+  const x = Math.cos(a.lat * r) * Math.sin(b.lat * r) - Math.sin(a.lat * r) * Math.cos(b.lat * r) * Math.cos((b.lng - a.lng) * r);
+  return (Math.atan2(y, x) / r + 360) % 360;
+}
+function stopFly() {
+  if (flyId) cancelAnimationFrame(flyId);
+  flyId = null; $('v3Fly').textContent = 'Survoler le parcours';
+}
+function startFly() {
+  if (!route) { $('v3Status').textContent = 'Tracez d’abord un itinéraire pour pouvoir le survoler.'; return; }
+  stopFly();
+  $('v3Status').textContent = ''; $('v3Fly').textContent = 'Arrêter le survol';
+  const total = route.pts[route.pts.length - 1].d;
+  let dist = 0, last = null, brg = null;
+  const step = t => {
+    const dt = last == null ? 0 : Math.min(0.1, (t - last) / 1000); last = t;
+    dist += +$('v3Speed').value * dt;
+    if (dist >= total) { stopFly(); $('v3Status').textContent = 'Survol terminé.'; return; }
+    const p = pointAt(dist), ahead = pointAt(Math.min(total, dist + 300));
+    const target = bearingTo(p, ahead);
+    if (brg == null) brg = target; else { const diff = ((target - brg + 540) % 360) - 180; brg += diff * Math.min(1, dt * 1.2); }
+    map3d.jumpTo({ center: [p.lng, p.lat], bearing: brg, pitch: 65, zoom: 14.5 });
+    map3d.getSource('rider').setData({ type: 'Point', coordinates: [p.lng, p.lat] });
+    $('v3Status').textContent = `${(dist / 1000).toFixed(1).replace('.', ',')} km sur ${(total / 1000).toFixed(1).replace('.', ',')}` + (p.ele != null ? ` · ${Math.round(p.ele)} m` : '');
+    flyId = requestAnimationFrame(step);
+  };
+  flyId = requestAnimationFrame(step);
+}
+
+$('open3d').onclick = open3d;
+$('v3Close').onclick = () => { stopFly(); $('view3d').hidden = true; setTimeout(() => map.invalidateSize(), 0); };
+$('v3Base').onchange = setBase3d;
+$('v3Exag').oninput = () => ready3d && map3d.setTerrain({ source: 'dem', exaggeration: +$('v3Exag').value });
+$('v3Fly').onclick = () => flyId ? stopFly() : startFly();
+const Btn3d = L.Control.extend({ options: { position: 'topright' }, onAdd() {
+  const b = L.DomUtil.create('button', 'btn3d'); b.textContent = '3D'; b.title = 'Voir en 3D';
+  L.DomEvent.disableClickPropagation(b); b.onclick = open3d; return b;
+} });
+new Btn3d().addTo(map);
+
+/* ---------- Mes annotations : points d'intérêt et tronçons ---------- */
+const ANNO_KEY = 'traceur-vtt-annotations';
+const POI_TYPES = {
+  vue:     { label: 'Point de vue', ico: '🔭' },
+  eau:     { label: 'Point d’eau', ico: '💧' },
+  pause:   { label: 'Pause, café, resto', ico: '☕' },
+  parking: { label: 'Parking', ico: '🅿️' },
+  danger:  { label: 'Danger, obstacle', ico: '⚠️' },
+  atelier: { label: 'Réparation, borne vélo', ico: '🔧' },
+  site:    { label: 'Lieu remarquable', ico: '🌳' },
+  autre:   { label: 'Autre', ico: '📍' }
+};
+const SEG_TYPES = {
+  top:   { label: 'Super passage', color: '#1E9E5A' },
+  tech:  { label: 'Passage technique', color: '#E07B00' },
+  boue:  { label: 'Boueux, souvent humide', color: '#8A5A2B' },
+  raide: { label: 'Montée très raide', color: '#7B3FC4' },
+  ferme: { label: 'Impraticable ou interdit', color: '#C62828', dash: '8 6', avoid: true },
+  note:  { label: 'Autre remarque', color: '#2E6FD8' }
+};
+const typeOf = (kind, a) => kind === 'poi' ? (POI_TYPES[a.type] || POI_TYPES.autre) : (SEG_TYPES[a.type] || SEG_TYPES.note);
+const fmtLen = m => m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(1).replace('.', ',') + ' km';
+const fmtKm = m => 'km ' + (m / 1000).toFixed(1).replace('.', ',');
+const xml = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const lineLen = pts => pts.reduce((t, p, i) => i ? t + L.latLng(pts[i - 1]).distanceTo(p) : 0, 0);
+const r6 = v => Math.round(v * 1e6) / 1e6;
+
+function loadAnnos() {
+  try { const a = JSON.parse(localStorage.getItem(ANNO_KEY)) || {}; return { pois: a.pois || [], segs: a.segs || [] }; }
+  catch { return { pois: [], segs: [] }; }
+}
+function storeAnnos() {
+  try { localStorage.setItem(ANNO_KEY, JSON.stringify(annos)); }
+  catch { setStatus('Enregistrement des annotations impossible dans ce navigateur.', true); }
+}
+let annos = loadAnnos();
+const annoGroup = L.layerGroup();
+const annoLayers = new Map();
+
+/* Affichage sur la carte */
+function poiIcon(p) {
+  return L.divIcon({ className: '', html: `<div class="poi">${typeOf('poi', p).ico}</div>`, iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -14] });
+}
+let lastAnnoClick = null;
+function annoPopup(kind, a) {
+  const t = typeOf(kind, a), div = document.createElement('div');
+  const h = document.createElement('b'); h.textContent = a.name || t.label; div.append(h);
+  const sub = document.createElement('div'); sub.className = 'pop-sub';
+  sub.textContent = kind === 'seg' ? `${t.label}, ${fmtLen(a.len || 0)}` : t.label; div.append(sub);
+  if (a.note) { const n = document.createElement('p'); n.className = 'pop-note'; n.textContent = a.note; div.append(n); }
+  const btns = document.createElement('div'); btns.className = 'pop-btns';
+  const ed = document.createElement('button'); ed.textContent = 'Modifier';
+  ed.onclick = () => { map.closePopup(); openEditor(kind, a.id); };
+  const del = document.createElement('button'); del.textContent = 'Supprimer';
+  del.onclick = () => { map.closePopup(); deleteAnno(kind, a.id); };
+  const via = document.createElement('button'); via.textContent = 'Passer par ici';
+  const at = kind === 'poi' ? L.latLng(a.lat, a.lng) : lastAnnoClick || L.latLng(a.pts[Math.floor(a.pts.length / 2)]);
+  via.onclick = () => { map.closePopup(); addWaypoint(at); };
+  btns.append(via, ed, del); div.append(btns);
+  return div;
+}
+function renderAnnos() {
+  annoGroup.clearLayers(); annoLayers.clear();
+  annos.segs.forEach(s => {
+    const t = typeOf('seg', s), g = L.featureGroup();
+    const o = { bubblingMouseEvents: false };
+    L.polyline(s.pts, { ...o, color: '#fff', weight: 10, opacity: .6 }).addTo(g);
+    L.polyline(s.pts, { ...o, color: t.color, weight: 5, dashArray: t.dash || null }).addTo(g);
+    g.on('click', e => { lastAnnoClick = e.latlng; });
+    g.bindPopup(() => annoPopup('seg', s));
+    g.bindTooltip(s.name || t.label, { sticky: true });
+    g.addTo(annoGroup); annoLayers.set(s.id, g);
+  });
+  annos.pois.forEach(p => {
+    const m = L.marker([p.lat, p.lng], { icon: poiIcon(p), draggable: true, zIndexOffset: 500, autoPan: true });
+    m.on('dragend', () => { const ll = m.getLatLng(); p.lat = r6(ll.lat); p.lng = r6(ll.lng); annosChanged(); });
+    m.bindPopup(() => annoPopup('poi', p));
+    m.bindTooltip(p.name || typeOf('poi', p).label, { direction: 'top', offset: [0, -14] });
+    m.addTo(annoGroup); annoLayers.set(p.id, m);
+  });
+  $('annoShow').checked ? annoGroup.addTo(map) : map.removeLayer(annoGroup);
+  renderAnnoList();
+  checkRouteAnnos();
+  update3d();
+}
+// Après chaque modification : enregistre, redessine, et recalcule si l'évitement est concerné.
+function annosChanged(affectsRouting) {
+  storeAnnos(); renderAnnos();
+  if (affectsRouting && $('annoAvoid').checked && waypoints.length > 1) scheduleRoute();
+}
+
+function renderAnnoList() {
+  const ul = $('annoList'); ul.innerHTML = '';
+  const items = [...annos.segs.map(a => ['seg', a]), ...annos.pois.map(a => ['poi', a])].sort((x, y) => (y[1].date || 0) - (x[1].date || 0));
+  if (!items.length) { ul.innerHTML = '<li class="empty">Aucune annotation. Ajoutez un point d’intérêt ou un tronçon ci-dessus.</li>'; return; }
+  items.forEach(([kind, a]) => {
+    const t = typeOf(kind, a), li = document.createElement('li');
+    const ic = document.createElement('i'); ic.className = 'ai' + (kind === 'seg' ? ' seg' : '');
+    if (kind === 'seg') ic.style.background = t.color; else ic.textContent = t.ico;
+    const sp = document.createElement('span'); sp.textContent = a.name || t.label;
+    const sm = document.createElement('small'); sm.textContent = (a.name ? t.label : '') + (kind === 'seg' ? (a.name ? ', ' : '') + fmtLen(a.len || 0) : '') || (a.note || ' ');
+    sp.append(sm);
+    const b = document.createElement('button'); b.textContent = 'Voir'; b.onclick = () => focusAnno(kind, a);
+    li.append(ic, sp, b); ul.append(li);
+  });
+}
+function focusAnno(kind, a) {
+  if (!$('annoShow').checked) { $('annoShow').checked = true; renderAnnos(); }
+  const layer = annoLayers.get(a.id);
+  if (kind === 'poi') { map.setView([a.lat, a.lng], Math.max(map.getZoom(), 15)); layer.openPopup(); }
+  else { lastAnnoClick = null; map.fitBounds(L.latLngBounds(a.pts), { padding: [60, 60], maxZoom: 17 }); layer.openPopup(L.latLng(a.pts[Math.floor(a.pts.length / 2)])); }
+}
+
+/* Formulaire de modification */
+let editing = null;
+function openEditor(kind, id, isNew) {
+  const a = (kind === 'poi' ? annos.pois : annos.segs).find(x => x.id === id); if (!a) return;
+  editing = { kind, id };
+  const types = kind === 'poi' ? POI_TYPES : SEG_TYPES;
+  $('aType').innerHTML = '';
+  for (const [k, t] of Object.entries(types)) $('aType').add(new Option((t.ico ? t.ico + ' ' : '') + t.label, k));
+  $('aType').value = types[a.type] ? a.type : Object.keys(types).pop();
+  $('aName').value = a.name || ''; $('aNote').value = a.note || '';
+  $('aTitle').textContent = (isNew ? 'Nouveau ' : '') + (kind === 'poi' ? 'point d’intérêt' : 'tronçon' + (a.len ? ` de ${fmtLen(a.len)}` : ''));
+  $('annoEdit').hidden = false;
+  $('panel').classList.remove('min');
+  $('annoEdit').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  $('aName').focus({ preventScroll: true });
+}
+$('aSave').onclick = () => {
+  if (!editing) return;
+  const a = (editing.kind === 'poi' ? annos.pois : annos.segs).find(x => x.id === editing.id);
+  if (a) { a.type = $('aType').value; a.name = $('aName').value.trim(); a.note = $('aNote').value.trim(); }
+  $('annoEdit').hidden = true; editing = null;
+  annosChanged(true);
+};
+$('aDel').onclick = () => editing && deleteAnno(editing.kind, editing.id);
+function deleteAnno(kind, id) {
+  const list = kind === 'poi' ? annos.pois : annos.segs, a = list.find(x => x.id === id); if (!a) return;
+  if (!confirm(`Supprimer « ${a.name || typeOf(kind, a).label} » ?`)) return;
+  list.splice(list.indexOf(a), 1);
+  if (editing && editing.id === id) { $('annoEdit').hidden = true; editing = null; }
+  annosChanged(true);
+}
+
+/* Modes d'ajout sur la carte */
+let annoMode = null, draft = null;
+const draftGroup = L.layerGroup().addTo(map);
+function startMode(m) {
+  cancelMode();
+  pickMode = false;
+  annoMode = m;
+  if (m === 'seg') draft = { clicks: [], parts: [], busy: 0, note: '' };
+  map.getContainer().style.cursor = 'crosshair';
+  if (window.innerWidth <= 760) $('panel').classList.add('min');
+  updateModeBar();
+}
+function cancelMode() {
+  annoMode = null; draft = null; draftGroup.clearLayers();
+  $('modeBar').hidden = true;
+  map.getContainer().style.cursor = '';
+}
+function draftLine() {
+  const out = [];
+  draft.parts.forEach(part => part.forEach(ll => { if (!out.length || !out[out.length - 1].equals(ll)) out.push(ll); }));
+  return out;
+}
+function updateModeBar() {
+  $('modeBar').hidden = false;
+  const seg = annoMode === 'seg';
+  ['followWrap', 'mUndo', 'mDone'].forEach(id => $(id).hidden = !seg);
+  if (!seg) { $('modeText').textContent = 'Cliquez sur la carte à l’endroit du point d’intérêt.'; return; }
+  const n = draft.clicks.length, len = n > 1 ? lineLen(draftLine()) : 0;
+  $('modeText').textContent = n === 0 ? 'Cliquez au début du tronçon.'
+    : n === 1 ? 'Cliquez ensuite le long du chemin, jusqu’à la fin du tronçon.'
+    : `Tronçon de ${fmtLen(len)}${draft.busy ? ', calcul en cours…' : '.'} Continuez à cliquer ou terminez.` + (draft.note ? ' ' + draft.note : '');
+  $('mUndo').disabled = n === 0;
+  $('mDone').disabled = n < 2 || draft.busy > 0;
+}
+function drawDraft() {
+  draftGroup.clearLayers();
+  const line = draftLine();
+  if (line.length > 1) {
+    L.polyline(line, { color: '#fff', weight: 8, opacity: .8, interactive: false }).addTo(draftGroup);
+    L.polyline(line, { color: css('--earth'), weight: 5, dashArray: '2 8', lineCap: 'round', interactive: false }).addTo(draftGroup);
+  }
+  draft.clicks.forEach(ll => L.circleMarker(ll, { radius: 5, color: '#fff', weight: 2, fillColor: css('--earth'), fillOpacity: 1, interactive: false }).addTo(draftGroup));
+  updateModeBar();
+}
+async function annoClick(ll) {
+  if (annoMode === 'poi') {
+    const p = { id: newId(), type: 'autre', name: '', note: '', lat: r6(ll.lat), lng: r6(ll.lng), date: Date.now() };
+    annos.pois.push(p); cancelMode(); annosChanged(); openEditor('poi', p.id, true);
+    return;
+  }
+  const d = draft;
+  d.clicks.push(ll);
+  const n = d.clicks.length;
+  if (n > 1) {
+    const a = d.clicks[n - 2], idx = n - 2;
+    d.parts[idx] = [a, ll];
+    if ($('annoFollow').checked) {
+      d.busy++; drawDraft();
+      try {
+        const res = await brouter(lonlatStr([a, ll]), 'shortest', 0, [], true);
+        if (d.clicks[idx + 1] === ll) { d.parts[idx] = [a, ...res.pts.map(p => p.ll), ll]; d.note = ''; }
+      } catch (e) { d.note = 'Aucun chemin trouvé entre ces deux points : tracé en ligne droite.'; }
+      d.busy--;
+      if (draft !== d) return;
+    }
+  }
+  drawDraft();
+}
+$('addPoi').onclick = () => startMode('poi');
+$('addSeg').onclick = () => startMode('seg');
+$('mCancel').onclick = cancelMode;
+$('mUndo').onclick = () => { if (!draft || !draft.clicks.length) return; draft.clicks.pop(); draft.parts.length = Math.max(0, draft.clicks.length - 1); drawDraft(); };
+$('mDone').onclick = () => {
+  if (!draft || draft.clicks.length < 2 || draft.busy) return;
+  const pts = draftLine().map(ll => [r6(ll.lat), r6(ll.lng)]);
+  const s = { id: newId(), type: 'note', name: '', note: '', pts, len: Math.round(lineLen(pts)), date: Date.now() };
+  annos.segs.push(s); cancelMode(); annosChanged(); openEditor('seg', s.id, true);
+};
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && annoMode) cancelMode(); });
+L.DomEvent.disableClickPropagation($('modeBar'));
+
+$('annoShow').onchange = () => renderAnnos();
+$('annoAvoid').onchange = () => waypoints.length > 1 && scheduleRoute();
+
+/* Lien avec le parcours */
+function densify(pts, step) {
+  const out = [];
+  pts.forEach((p, i) => {
+    if (i) { const a = pts[i - 1], n = Math.floor(L.latLng(a).distanceTo(p) / step);
+      for (let k = 1; k < n; k++) out.push([a[0] + (p[0] - a[0]) * k / n, a[1] + (p[1] - a[1]) * k / n]); }
+    out.push(p);
+  });
+  return out;
+}
+// Grille des points du parcours (densifiés tous les 10 m) pour des recherches de proximité rapides.
+function routeGrid() {
+  if (route.grid) return route.grid;
+  const C = 0.0005, g = new Map(), P = route.pts;
+  const put = (la, lo, d) => { const k = Math.floor(la / C) + ':' + Math.floor(lo / C); if (!g.has(k)) g.set(k, []); g.get(k).push([la, lo, d]); };
+  P.forEach((p, i) => {
+    if (i) { const a = P[i - 1], n = Math.floor((p.d - a.d) / 10);
+      for (let k = 1; k < n; k++) put(a.ll.lat + (p.ll.lat - a.ll.lat) * k / n, a.ll.lng + (p.ll.lng - a.ll.lng) * k / n, a.d + (p.d - a.d) * k / n); }
+    put(p.ll.lat, p.ll.lng, p.d);
+  });
+  return route.grid = { g, C };
+}
+function nearestOnRoute(lat, lng, max) {
+  if (!route) return null;
+  const { g, C } = routeGrid(), cos = Math.cos(lat * Math.PI / 180);
+  const ry = Math.ceil(max / (C * 111320)), rx = Math.ceil(max / (C * 111320 * cos));
+  const cy = Math.floor(lat / C), cx = Math.floor(lng / C);
+  let best = null;
+  for (let y = cy - ry; y <= cy + ry; y++) for (let x = cx - rx; x <= cx + rx; x++) {
+    (g.get(y + ':' + x) || []).forEach(([la, lo, d]) => {
+      const dy = (la - lat) * 111320, dx = (lo - lng) * 111320 * cos, dist = Math.hypot(dx, dy);
+      if (dist <= max && (!best || dist < best.dist)) best = { dist, d };
+    });
+  }
+  return best;
+}
+function computeRouteAnnos() {
+  const pois = annos.pois.map(p => ({ p, n: nearestOnRoute(p.lat, p.lng, 60) })).filter(x => x.n).map(x => ({ p: x.p, d: x.n.d }));
+  const segs = [];
+  annos.segs.forEach(s => {
+    const pts = densify(s.pts, 15), hits = pts.map(([a, b]) => nearestOnRoute(a, b, 25)).filter(Boolean);
+    if (hits.length / pts.length >= 0.5) segs.push({ s, d1: Math.min(...hits.map(h => h.d)), d2: Math.max(...hits.map(h => h.d)) });
+  });
+  return { pois, segs };
+}
+function checkRouteAnnos() {
+  const w = $('annoWarn'), ul = $('routeAnnos');
+  if (!route) { w.hidden = true; ul.innerHTML = ''; return; }
+  const hits = route.annoHits = computeRouteAnnos();
+  const rows = [...hits.segs.map(h => ({ d: h.d1, kind: 'seg', a: h.s, extra: ` (${fmtLen(h.d2 - h.d1)})` })),
+                ...hits.pois.map(h => ({ d: h.d, kind: 'poi', a: h.p, extra: '' }))].sort((x, y) => x.d - y.d);
+  ul.innerHTML = '';
+  rows.forEach(r => {
+    const t = typeOf(r.kind, r.a), li = document.createElement('li');
+    const b = document.createElement('b'); b.textContent = fmtKm(r.d);
+    const sp = document.createElement('span');
+    sp.textContent = (r.kind === 'poi' ? t.ico + ' ' : '') + (r.a.name || t.label) + r.extra;
+    if (r.kind === 'seg') sp.style.borderLeft = `4px solid ${t.color}`, sp.style.paddingLeft = '6px';
+    li.append(b, sp); ul.append(li);
+  });
+  const bad = hits.segs.filter(h => typeOf('seg', h.s).avoid);
+  if (bad.length) {
+    w.textContent = `Ce tracé emprunte ${bad.length > 1 ? bad.length + ' tronçons que vous avez signalés' : 'un tronçon que vous avez signalé'} impraticable ou interdit : `
+      + bad.map(h => `${h.s.name || 'sans nom'} (${fmtKm(h.d1)})`).join(', ') + '.'
+      + ($('annoAvoid').checked ? '' : ' Cochez « Éviter les tronçons impraticables » dans Mes annotations pour le contourner.');
+    w.hidden = false;
+  } else w.hidden = true;
+  if ($('elev').classList.contains('on')) drawElevation();
+}
+// Tronçons à éviter, envoyés à BRouter comme petites zones interdites (cercles de 10 m tous les 15 m),
+// en laissant libres les 20 premiers et derniers mètres pour ne pas bloquer les carrefours.
+function annoNogos() {
+  if (!$('annoAvoid').checked) return '';
+  const out = [];
+  annos.segs.filter(s => typeOf('seg', s).avoid && s.pts.length > 1).forEach(s => {
+    const P = densify(s.pts, 15), len = lineLen(P);
+    if (len < 40) { const m = P[Math.floor(P.length / 2)]; out.push([m[1], m[0]]); return; }
+    let acc = 0;
+    P.forEach((p, i) => { if (i) acc += L.latLng(P[i - 1]).distanceTo(p); if (acc >= 20 && acc <= len - 20) out.push([p[1], p[0]]); });
+  });
+  const st = Math.max(1, Math.ceil(out.length / 300));
+  return out.filter((_, i) => i % st === 0).map(([lo, la]) => `${lo.toFixed(6)},${la.toFixed(6)},10`).join('|');
+}
+
+/* Sauvegarde et chargement (GeoJSON) */
+$('annoExport').onclick = () => {
+  if (!annos.pois.length && !annos.segs.length) { setStatus('Aucune annotation à sauvegarder pour l’instant.', true); return; }
+  const props = (kind, a) => ({ kind, id: a.id, type: a.type, label: typeOf(kind, a).label, name: a.name, note: a.note, date: a.date });
+  const gj = { type: 'FeatureCollection', features: [
+    ...annos.pois.map(p => ({ type: 'Feature', properties: props('poi', p), geometry: { type: 'Point', coordinates: [p.lng, p.lat] } })),
+    ...annos.segs.map(s => ({ type: 'Feature', properties: props('seg', s), geometry: { type: 'LineString', coordinates: s.pts.map(([a, b]) => [b, a]) } }))
+  ] };
+  download('mes-annotations-vtt.geojson', JSON.stringify(gj, null, 1), 'application/geo+json');
+  setStatus('Annotations sauvegardées dans « mes-annotations-vtt.geojson ».');
+};
+$('annoImport').onclick = () => $('annoFile').click();
+$('annoFile').onchange = async () => {
+  const f = $('annoFile').files[0]; if (!f) return;
+  try {
+    const gj = JSON.parse(await f.text()), ids = new Set([...annos.pois, ...annos.segs].map(a => a.id));
+    let n = 0;
+    (gj.features || []).forEach(ft => {
+      const pr = ft.properties || {}, g = ft.geometry; if (!g) return;
+      const id = pr.id || newId(); if (ids.has(id)) return;
+      const base = { id, name: pr.name || '', note: pr.note || pr.description || '', date: pr.date || Date.now() };
+      if (g.type === 'Point') { annos.pois.push({ ...base, type: POI_TYPES[pr.type] ? pr.type : 'autre', lat: r6(g.coordinates[1]), lng: r6(g.coordinates[0]) }); n++; }
+      else if (g.type === 'LineString' && g.coordinates.length > 1) {
+        const pts = g.coordinates.map(c => [r6(c[1]), r6(c[0])]);
+        annos.segs.push({ ...base, type: SEG_TYPES[pr.type] ? pr.type : 'note', pts, len: Math.round(lineLen(pts)) }); n++;
+      } else return;
+      ids.add(id);
+    });
+    annosChanged(true);
+    setStatus(n ? `${n} annotation${n > 1 ? 's' : ''} ajoutée${n > 1 ? 's' : ''}.` : 'Aucune nouvelle annotation dans ce fichier.');
+  } catch (e) { setStatus('Ce fichier n’est pas un GeoJSON lisible.', true); }
+  $('annoFile').value = '';
+};
+
+renderAnnos();
+
+$('toggle').onclick = () => { $('panel').classList.toggle('min'); setTimeout(() => map.invalidateSize(), 50); };
+</script>
+</body>
+</html>
